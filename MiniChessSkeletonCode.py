@@ -6,6 +6,7 @@ import argparse
 class MiniChess:
     def __init__(self):
         self.current_game_state = self.init_board()
+        self.turnNumber = 0
 
     """
     Initialize the board
@@ -217,11 +218,12 @@ class MiniChess:
         - None
     """
     def play(self):
+        
         print("Welcome to Mini Chess! Enter moves as 'B2 B3'. Type 'exit' to quit.")
         while True:
             self.display_board(self.current_game_state)
-            #print(self.valid_moves(self.current_game_state))
-            move = input(f"{self.current_game_state['turn'].capitalize()} to move: ")
+            currentPlayer = self.current_game_state['turn'].capitalize()
+            move = input(f"{currentPlayer} to move: ")
             if move.lower() == 'exit':
                 print("Game exited.")
                 exit(1)
@@ -231,7 +233,14 @@ class MiniChess:
                 print("Invalid move. Try again.")
                 continue
             
+            self.turnNumber += 1
             self.make_move(self.current_game_state, move)
+            start, end = move
+            startPosition = f"{chr(start[1] + ord('A'))}{5 - start[0]}"
+            endPosition = f"{chr(end[1] + ord('A'))}{5 - end[0]}"
+            print(f"Action taken: Move from {startPosition} to {endPosition}")
+            print(f"Turn number: {self.turnNumber}")
+            print(f"Player: {currentPlayer}")
             
 
 if __name__ == "__main__":
