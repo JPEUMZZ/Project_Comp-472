@@ -2,11 +2,16 @@ import math
 import copy
 import time
 import argparse
+from game_io import get_game_parameters, save_game_trace
 
 class MiniChess:
     def __init__(self):
+        self.game_parameters = get_game_parameters()
+        print(f"Loaded Game Parameters: {self.game_parameters}")
         self.current_game_state = self.init_board()
+        self.totalMoves = 0
         self.turnNumber = 0  # Counter for draw condition
+        self.moves_log = []
 
     def init_board(self):
         state = {
@@ -130,16 +135,24 @@ class MiniChess:
         target_piece = game_state["board"][end_row][end_col]
 
         if target_piece == "bK" or target_piece == "wK":
+            winner=game_state['turn'].capitalize()
             print(f"Game Over! {game_state['turn'].capitalize()} wins by capturing the King.")
+            save_game_trace(self.game_parameters, self.moves_log, f"{winner} (King Capture)")
             exit(0)
 
+        # Add a separate counter for moves
+        self.totalMoves += 1
+
+        # Maintain turnNumber only for capture-based draw rule
         if target_piece != '.':
             self.turnNumber = 0
         else:
             self.turnNumber += 1
 
+
         if self.turnNumber >= 10:
             print("Game Over! It's a draw (10 turns without a capture).")
+            save_game_trace(self.game_parameters, self.moves_log, "Draw (10 Turns No Capture)")
             exit(0)
 
         #pawn promotion
@@ -167,6 +180,7 @@ class MiniChess:
             self.display_board(self.current_game_state)
             currentPlayer = self.current_game_state['turn'].capitalize()
             move = input(f"{currentPlayer} to move: ")
+
             if move.lower() == 'exit':
                 print("Game exited.")
                 exit(1)
@@ -176,10 +190,21 @@ class MiniChess:
                 print("Invalid move. Try again.")
                 continue
 
+            # Log moves
+            self.moves_log.append(f"{currentPlayer} moved from {move[0]} to {move[1]}")
+
             self.make_move(self.current_game_state, move)
             print(f"Action taken: Move from {move[0]} to {move[1]}")
             print(f"Turn number: {self.turnNumber}")
             print(f"Player: {currentPlayer}")
+
+            self.totalMoves += 1
+
+            if self.totalMoves >= self.game_parameters['max_turns']:
+                print("Game Over! Reached maximum moves.")
+                save_game_trace(self.game_parameters, self.moves_log, "Draw (Max Moves Reached)")
+                break
+
 
 if __name__ == "__main__":
     game = MiniChess()
