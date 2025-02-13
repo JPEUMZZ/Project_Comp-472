@@ -4,22 +4,56 @@ Max Turns: 100
 Alpha-Beta Pruning: True
 Play Mode: H-H
 
+Initial Board Configuration:
+bK bQ bB bN .
+. . bp bp .
+. . . . .
+. wp wp . .
+. wN wB wQ wK
+
+Board Configuration After Each Move:
+Turn 0 (White):
+ bK  bQ  bB  bN   .
+  .   .  bp  bp   .
+  .   .   .   .   .
+  .  wp  wp   .   .
+  .  wN  wB  wQ  wK
+
+Turn 1 (White):
+ bK  bQ  bB  bN   .
+  .   .  bp  bp   .
+  .  wp   .   .   .
+  .   .  wp   .   .
+  .  wN  wB  wQ  wK
+
+Turn 2 (Black):
+  .  bQ  bB  bN   .
+ bK   .  bp  bp   .
+  .  wp   .   .   .
+  .   .  wp   .   .
+  .  wN  wB  wQ  wK
+
+Turn 3 (White):
+  .  bQ  bB  bN   .
+ bK   .  wp  bp   .
+  .   .   .   .   .
+  .   .  wp   .   .
+  .  wN  wB  wQ  wK
+
+Turn 4 (Black):
+  .  bQ  bB  bN   .
+  .   .  wp  bp   .
+ bK   .   .   .   .
+  .   .  wp   .   .
+  .  wN  wB  wQ  wK
+
+
 Game Moves:
-Turn 1: White moved from (3, 1) to (2, 1)
-Turn 2: Black moved from (1, 2) to (2, 2)
-Turn 3: White moved from (4, 1) to (2, 2)
-Turn 4: Black moved from (0, 3) to (2, 4)
-Turn 5: White moved from (4, 2) to (2, 4)
-Turn 6: Black moved from (1, 3) to (2, 3)
-Turn 7: White moved from (4, 3) to (2, 3)
-Turn 8: Black moved from (0, 1) to (1, 1)
-Turn 9: White moved from (2, 3) to (1, 3)
-Turn 10: Black moved from (1, 1) to (1, 0)
-Turn 11: White moved from (2, 1) to (1, 0)
-Turn 12: Black moved from (0, 2) to (1, 1)
-Turn 13: White moved from (1, 3) to (1, 1)
-Turn 14: Black moved from (0, 0) to (0, 1)
-Turn 15: White moved from (1, 1) to (0, 1)
+Turn 1 (White): Turn 1 (White): b2 b3
+Turn 2 (Black): Turn 2 (Black): a5 a4
+Turn 3 (White): Turn 3 (White): b3 c4
+Turn 4 (Black): Turn 4 (Black): a4 a3
+Turn 5 (White): Turn 5 (White): c1 a3
 
 Game Over!
-Winner: White (King Capture)
+Winner: White (King Capture) (after 5 turns)

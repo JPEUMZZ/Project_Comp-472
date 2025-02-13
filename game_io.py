@@ -1,5 +1,7 @@
 import argparse
 import os
+import sys
+from io import StringIO
 
 def get_game_parameters():
     parser = argparse.ArgumentParser(description="Mini Chess Game Description")
@@ -10,8 +12,7 @@ def get_game_parameters():
                         help='Play mode: "H-H" (Human vs. Human), "H-AI" (Human vs. AI), etc.')
 
     args = parser.parse_args()
-    
-    # Validate parsed arguments to prevent None issues
+
     if args.max_turns is None or args.time is None:
         raise ValueError("Missing required parameters: 'max_turns' or 'time'. Ensure arguments are passed correctly.")
 
@@ -21,15 +22,20 @@ def get_game_parameters():
         "time_limit": args.time,
         "max_turns": args.max_turns,
         "alpha_beta": args.alpha_beta,
-        "play_mode": args.play_mode
+        "play_mode": args.play_mode,
+        "initial_board": [],
     }
 
-def save_game_trace(game_parameters, moves_log, winner):
+def save_game_trace(game_parameters, moves_log, winner, initial_board=None, board_snapshots=None):
     output_folder = "game_traces"
     os.makedirs(output_folder, exist_ok=True)
 
+    # ✅ Ensure filename is defined before the try/except block
     filename = f"{output_folder}/gameTrace-{game_parameters['alpha_beta']}-{game_parameters['time_limit']}-{game_parameters['max_turns']}.txt"
-    
+
+    output_capture = StringIO()
+    sys.stdout = output_capture
+
     try:
         with open(filename, "w") as f:
             f.write("Game Parameters:\n")
@@ -38,13 +44,32 @@ def save_game_trace(game_parameters, moves_log, winner):
             f.write(f"Alpha-Beta Pruning: {game_parameters['alpha_beta']}\n")
             f.write(f"Play Mode: {game_parameters['play_mode']}\n\n")
 
-            f.write("Game Moves:\n")
+            # Record Initial Board
+            f.write("Initial Board Configuration:\n")
+            if initial_board:
+                for row in initial_board:
+                    f.write(' '.join(row) + '\n')
+            else:
+                f.write("[Initial board not recorded]\n")
+
+            # Record Each Turn’s Board Configuration
+            if board_snapshots:
+                f.write("\nBoard Configuration After Each Move:\n")
+                for snapshot in board_snapshots:
+                    f.write(snapshot + "\n")
+
+            # Record Moves
+            f.write("\nGame Moves:\n")
             for turn, move in enumerate(moves_log, start=1):
-                f.write(f"Turn {turn}: {move}\n")
+                player = "White" if turn % 2 != 0 else "Black"
+                f.write(f"Turn {turn} ({player}): {move}\n")
 
-            f.write("\nGame Over!\n")
-            f.write(f"Winner: {winner}\n")
+            # Record Winner
+            f.write(f"\nGame Over!\nWinner: {winner} (after {len(moves_log)} turns)\n")
 
-        print(f"Game trace successfully saved to: {filename}")
+            print(f"Game trace successfully saved to: {filename}")
+
     except Exception as e:
         print(f"Failed to save game trace: {e}")
+    finally:
+        sys.stdout = sys.__stdout__

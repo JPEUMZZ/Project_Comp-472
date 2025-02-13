@@ -9,9 +9,11 @@ class MiniChess:
         self.game_parameters = get_game_parameters()
         print(f"Loaded Game Parameters: {self.game_parameters}")
         self.current_game_state = self.init_board()
+        self.initial_board = [row.copy() for row in self.current_game_state["board"]]
         self.totalMoves = 0
         self.turnNumber = 0  # Counter for draw condition
         self.moves_log = []
+        self.board_snapshots = []
 
     def init_board(self):
         state = {
@@ -126,6 +128,10 @@ class MiniChess:
                     moves.append((row + direction, col + dc))
 
         return moves
+    
+    def get_board_string(self, board):
+        """Format the board as a string (for saving to trace)."""
+        return "\n".join(" ".join(piece.rjust(3) for piece in row) for row in board)
 
     def make_move(self, game_state, move):
         start, end = move
@@ -134,14 +140,11 @@ class MiniChess:
         piece = game_state["board"][start_row][start_col]
         target_piece = game_state["board"][end_row][end_col]
 
-        if target_piece == "bK" or target_piece == "wK":
-            winner=game_state['turn'].capitalize()
-            print(f"Game Over! {game_state['turn'].capitalize()} wins by capturing the King.")
-            save_game_trace(self.game_parameters, self.moves_log, f"{winner} (King Capture)")
+        if target_piece in ["bK","wK"]:
+            winner = game_state['turn'].capitalize()
+            print(f"Game Over! {winner} wins by capturing the King.")
+            save_game_trace(self.game_parameters, self.moves_log, f"{winner} (King Capture)", self.initial_board, self.board_snapshots)
             exit(0)
-
-        # Add a separate counter for moves
-        self.totalMoves += 1
 
         # Maintain turnNumber only for capture-based draw rule
         if target_piece != '.':
@@ -149,11 +152,14 @@ class MiniChess:
         else:
             self.turnNumber += 1
 
+        self.totalMoves += 1
+
 
         if self.turnNumber >= 10:
             print("Game Over! It's a draw (10 turns without a capture).")
-            save_game_trace(self.game_parameters, self.moves_log, "Draw (10 Turns No Capture)")
+            save_game_trace(self.game_parameters, self.moves_log, "Draw (10 Turns No Capture)", self.initial_board, self.board_snapshots)
             exit(0)
+
 
         #pawn promotion
         if piece in ["wp", "bp"] and ((piece == "wp" and end_row == 0) or (piece == "bp" and end_row == 4)):
@@ -176,6 +182,8 @@ class MiniChess:
 
     def play(self):
         print("Welcome to Mini Chess! Enter moves as 'B2 B3'. Type 'exit' to quit.")
+        self.board_snapshots.append(f"Turn 0 (White):\n{self.get_board_string(self.current_game_state['board'])}\n")
+
         while True:
             self.display_board(self.current_game_state)
             currentPlayer = self.current_game_state['turn'].capitalize()
@@ -183,27 +191,27 @@ class MiniChess:
 
             if move.lower() == 'exit':
                 print("Game exited.")
-                exit(1)
+                break
 
-            move = self.parse_input(move)
-            if not move or move not in self.valid_moves(self.current_game_state):
+            parsed_move = self.parse_input(move)
+            if not parsed_move or parsed_move not in self.valid_moves(self.current_game_state):
                 print("Invalid move. Try again.")
                 continue
 
-            # Log moves
-            self.moves_log.append(f"{currentPlayer} moved from {move[0]} to {move[1]}")
+        # ✅ Log moves and board snapshots together
+            self.moves_log.append(f"Turn {self.totalMoves + 1} ({currentPlayer}): {move}")
+            self.make_move(self.current_game_state, parsed_move)
 
-            self.make_move(self.current_game_state, move)
-            print(f"Action taken: Move from {move[0]} to {move[1]}")
-            print(f"Turn number: {self.turnNumber}")
-            print(f"Player: {currentPlayer}")
+            self.board_snapshots.append(f"Turn {self.totalMoves} ({currentPlayer}):\n{self.get_board_string(self.current_game_state['board'])}\n")
 
-            self.totalMoves += 1
+            print(f"DEBUG: Total Moves: {self.totalMoves}, Max Turns: {self.game_parameters['max_turns']}")
+            print(f"DEBUG: Turn Number: {self.turnNumber} (For Capture Condition)")
 
             if self.totalMoves >= self.game_parameters['max_turns']:
                 print("Game Over! Reached maximum moves.")
-                save_game_trace(self.game_parameters, self.moves_log, "Draw (Max Moves Reached)")
+                save_game_trace(self.game_parameters, self.moves_log, "Draw (Max Moves Reached)", self.initial_board, self.board_snapshots)
                 break
+
 
 
 if __name__ == "__main__":
