@@ -84,10 +84,15 @@ Moves are input as start_position end_position (e.g., C4 C3).
 Type exit to quit.
 
 # Group Member
-Mengqi Tong: Game rules and move validation: 
+###Mengqi Tong: 
+- Game rules and move validation: 
+- Implemented King capture logic. The game ends immediately when a King is taken.
+- Added pawn promotion. Pawns reaching the last row are automatically converted to a Queen.
+- Implemented a 10-turn draw rule. If no capture happens in 10 moves, the game ends in a draw.
 
-Implemented King capture logic. The game ends immediately when a King is taken.
-
-Added pawn promotion. Pawns reaching the last row are automatically converted to a Queen.
-
-Implemented 10-turn draw rule. If no capture happens in 10 moves, the game ends in a draw.
+###Thaneekan Thankarajah:
+- Implemented input parameters for the game such as timeout options, maximum amount of turns, play mode, etc.
+- Trace file:
+- Captured every turn by players in the proper sequence of time. 
+- Board initialization and capture. The resulting trace file captures the board's appearance at the moment of each turn.
+- A recap of who won the game and in how many turns.
