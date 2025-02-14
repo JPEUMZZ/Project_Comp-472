@@ -30,7 +30,7 @@ def save_game_trace(game_parameters, moves_log, winner, initial_board=None, boar
     output_folder = "game_traces"
     os.makedirs(output_folder, exist_ok=True)
 
-    # ✅ Ensure filename is defined before the try/except block
+    
     filename = f"{output_folder}/gameTrace-{game_parameters['alpha_beta']}-{game_parameters['time_limit']}-{game_parameters['max_turns']}.txt"
 
     output_capture = StringIO()

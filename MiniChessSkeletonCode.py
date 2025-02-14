@@ -198,7 +198,7 @@ class MiniChess:
                 print("Invalid move. Try again.")
                 continue
 
-        # ✅ Log moves and board snapshots together
+        
             self.moves_log.append(f"Turn {self.totalMoves + 1} ({currentPlayer}): {move}")
             self.make_move(self.current_game_state, parsed_move)
 
