@@ -73,7 +73,17 @@ Refactored pawn promotion logic to correctly transform a pawn into a Queen.
 
 # How to Play
 
-Run and Enter moves in algebraic notation (e.g., B2 B3).
+To run the game, input this command in your terminal:
+
+python MiniChessSkeletonCode.py -t (time) -m (# of turns) -a (True or false) -p (play mode)
+
+so an example of this would be:
+
+python MiniChessSkeletonCode.py -t 5 -m 100 -a False -p H-H
+
+The command above means that the time given for each move is 5 seconds only, there is a maximum of 100 moves, alpha-beta is set to false and the play mode is Human vs. Human.
+
+Once the game starts, you can run and enter moves in algebraic notation (e.g., B2 B3).
 
 During the game:
 
@@ -83,7 +93,7 @@ Moves are input as start_position end_position (e.g., C4 C3).
 
 Type exit to quit.
 
-# Group Member
+# Group Members
 ### Mengqi Tong: 
 - Game rules and move validation: 
 - Implemented King capture logic. The game ends immediately when a King is taken.
