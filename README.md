@@ -106,3 +106,6 @@ Type exit to quit.
 - Captured every turn by players in the proper sequence of time. 
 - Board initialization and capture. The resulting trace file captures the board's appearance at the moment of each turn.
 - A recap of who won the game and in how many turns.
+### Junior Peumi:
+- Implement movement rules for each piece
+- Implement move validation
