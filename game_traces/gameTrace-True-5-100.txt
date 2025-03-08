@@ -2,7 +2,7 @@ Game Parameters:
 Timeout: 5 sec
 Max Turns: 100
 Alpha-Beta Pruning: True
-Play Mode: H-H
+Play Mode: H-AI
 
 Initial Board Configuration:
 bK bQ bB bN .
@@ -27,33 +27,25 @@ Turn 1 (White):
   .  wN  wB  wQ  wK
 
 Turn 2 (Black):
-  .  bQ  bB  bN   .
- bK   .  bp  bp   .
+ bK   .  bB  bN   .
+  .  bQ  bp  bp   .
   .  wp   .   .   .
   .   .  wp   .   .
   .  wN  wB  wQ  wK
 
 Turn 3 (White):
-  .  bQ  bB  bN   .
- bK   .  wp  bp   .
+ bK   .  bB  bN   .
+  .  bQ  wp  bp   .
   .   .   .   .   .
-  .   .  wp   .   .
-  .  wN  wB  wQ  wK
-
-Turn 4 (Black):
-  .  bQ  bB  bN   .
-  .   .  wp  bp   .
- bK   .   .   .   .
   .   .  wp   .   .
   .  wN  wB  wQ  wK
 
 
 Game Moves:
-Turn 1 (White): Turn 1 (White): b2 b3
-Turn 2 (Black): Turn 2 (Black): a5 a4
-Turn 3 (White): Turn 3 (White): b3 c4
-Turn 4 (Black): Turn 4 (Black): a4 a3
-Turn 5 (White): Turn 5 (White): c1 a3
+Turn 1 (White): Turn 1 (White): B2 B3
+Turn 2 (Black): Turn 2 (Black): B5 B4
+Turn 3 (White): Turn 3 (White): B3 C4
+Turn 4 (Black): Turn 4 (Black): B4 E1
 
 Game Over!
-Winner: White (King Capture) (after 5 turns)
+Winner: Black (King Capture) (after 4 turns)

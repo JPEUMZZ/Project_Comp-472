@@ -14,6 +14,12 @@ class MiniChess:
         self.turnNumber = 0  # Counter for draw condition
         self.moves_log = []
         self.board_snapshots = []
+        
+        # AI statistics
+        self.states_explored = 0
+        self.states_by_depth = {}
+        self.total_branching_factor = 0
+        self.total_branching_samples = 0
 
     def init_board(self):
         state = {
@@ -134,42 +140,26 @@ class MiniChess:
         return "\n".join(" ".join(piece.rjust(3) for piece in row) for row in board)
 
     def make_move(self, game_state, move):
+        new_state = copy.deepcopy(game_state)
         start, end = move
         start_row, start_col = start
         end_row, end_col = end
-        piece = game_state["board"][start_row][start_col]
-        target_piece = game_state["board"][end_row][end_col]
+        piece = new_state["board"][start_row][start_col]
+        target_piece = new_state["board"][end_row][end_col]
 
-        if target_piece in ["bK","wK"]:
-            winner = game_state['turn'].capitalize()
-            print(f"Game Over! {winner} wins by capturing the King.")
-            save_game_trace(self.game_parameters, self.moves_log, f"{winner} (King Capture)", self.initial_board, self.board_snapshots)
-            exit(0)
+        # Check for win condition (king captured)
+        if target_piece in ["bK", "wK"]:
+            return new_state, True, new_state["turn"].capitalize()
 
-        # Maintain turnNumber only for capture-based draw rule
-        if target_piece != '.':
-            self.turnNumber = 0
-        else:
-            self.turnNumber += 1
-
-        self.totalMoves += 1
-
-
-        if self.turnNumber >= 10:
-            print("Game Over! It's a draw (10 turns without a capture).")
-            save_game_trace(self.game_parameters, self.moves_log, "Draw (10 Turns No Capture)", self.initial_board, self.board_snapshots)
-            exit(0)
-
-
-        #pawn promotion
+        # Pawn promotion
         if piece in ["wp", "bp"] and ((piece == "wp" and end_row == 0) or (piece == "bp" and end_row == 4)):
             piece = piece[0] + "Q"
 
-        game_state["board"][start_row][start_col] = '.'
-        game_state["board"][end_row][end_col] = piece
-        game_state["turn"] = "black" if game_state["turn"] == "white" else "white"
+        new_state["board"][start_row][start_col] = '.'
+        new_state["board"][end_row][end_col] = piece
+        new_state["turn"] = "black" if new_state["turn"] == "white" else "white"
 
-        return game_state
+        return new_state, False, None
 
     def parse_input(self, move):
         try:
@@ -180,39 +170,342 @@ class MiniChess:
         except:
             return None
 
+    def coordinate_to_string(self, coord):
+        row, col = coord
+        return f"{chr(col + ord('A'))}{5 - row}"
+
+    def e0_heuristic(self, game_state):
+        """
+        Implements the e0 heuristic:
+        e0 = (#wp + 3 · #wB + 3 · #wN + 9 · #wQ + 999 · wK) - (#bp + 3 · #bB + 3 · #bN + 9 · #bQ + 999 · bK)
+        """
+        board = game_state["board"]
+        
+        # Initialize counters for each piece
+        piece_counts = {
+            'wp': 0, 'wB': 0, 'wN': 0, 'wQ': 0, 'wK': 0,
+            'bp': 0, 'bB': 0, 'bN': 0, 'bQ': 0, 'bK': 0
+        }
+        
+        # Count pieces on the board
+        for row in board:
+            for piece in row:
+                if piece in piece_counts:
+                    piece_counts[piece] += 1
+        
+        # Calculate heuristic value
+        white_value = (piece_counts['wp'] + 
+                       3 * piece_counts['wB'] + 
+                       3 * piece_counts['wN'] + 
+                       9 * piece_counts['wQ'] + 
+                       999 * piece_counts['wK'])
+        
+        black_value = (piece_counts['bp'] + 
+                       3 * piece_counts['bB'] + 
+                       3 * piece_counts['bN'] + 
+                       9 * piece_counts['bQ'] + 
+                       999 * piece_counts['bK'])
+        
+        return white_value - black_value
+
+    def minimax(self, game_state, depth, max_depth, maximizing_player, alpha=float('-inf'), beta=float('inf'), use_alpha_beta=True, start_time=None, max_time=None):
+        # Track states explored
+        self.states_explored += 1
+        if depth not in self.states_by_depth:
+            self.states_by_depth[depth] = 0
+        self.states_by_depth[depth] += 1
+        
+        # Check if we've run out of time
+        if start_time and max_time and time.time() - start_time > max_time:
+            return None, None, True  # Time's up
+        
+        # Terminal conditions: depth reached or game over
+        if depth == max_depth:
+            return self.e0_heuristic(game_state), None, False
+        
+        valid_moves = self.valid_moves(game_state)
+        
+        # Add to branching factor statistics
+        if depth > 0:  # Don't count root node
+            self.total_branching_factor += len(valid_moves)
+            self.total_branching_samples += 1
+        
+        # If no valid moves or game is over
+        if not valid_moves:
+            return self.e0_heuristic(game_state), None, False
+        
+        best_move = None
+        time_up = False
+        
+        if maximizing_player:
+            best_value = float('-inf')
+            for move in valid_moves:
+                new_state, game_over, winner = self.make_move(game_state, move)
+                
+                # If game is over due to king capture
+                if game_over:
+                    return 1000 if winner == 'White' else -1000, move, False
+                
+                value, _, time_exceeded = self.minimax(new_state, depth + 1, max_depth, False, alpha, beta, use_alpha_beta, start_time, max_time)
+                
+                if time_exceeded:
+                    time_up = True
+                    break
+                
+                if value > best_value:
+                    best_value = value
+                    best_move = move
+                
+                if use_alpha_beta:
+                    alpha = max(alpha, best_value)
+                    if beta <= alpha:
+                        break
+        else:
+            best_value = float('inf')
+            for move in valid_moves:
+                new_state, game_over, winner = self.make_move(game_state, move)
+                
+                # If game is over due to king capture
+                if game_over:
+                    return -1000 if winner == 'Black' else 1000, move, False
+                
+                value, _, time_exceeded = self.minimax(new_state, depth + 1, max_depth, True, alpha, beta, use_alpha_beta, start_time, max_time)
+                
+                if time_exceeded:
+                    time_up = True
+                    break
+                
+                if value < best_value:
+                    best_value = value
+                    best_move = move
+                
+                if use_alpha_beta:
+                    beta = min(beta, best_value)
+                    if beta <= alpha:
+                        break
+        
+        return best_value, best_move, time_up
+
+    def get_ai_move(self, game_state):
+        # Reset statistics for this move
+        self.states_explored = 0
+        self.states_by_depth = {}
+        
+        start_time = time.time()
+        max_time = self.game_parameters["time_limit"]
+        use_alpha_beta = self.game_parameters["alpha_beta"]
+        
+        best_score = None
+        best_move = None
+        current_depth = 1
+        
+        # Iterative deepening
+        while True:
+            # Reset state counting for this depth
+            self.states_explored = 0
+            self.states_by_depth = {}
+            self.total_branching_factor = 0
+            self.total_branching_samples = 0
+            
+            # Start with the initial search
+            is_maximizing = game_state["turn"] == "white"
+            score, move, time_exceeded = self.minimax(
+                game_state, 
+                0, 
+                current_depth, 
+                is_maximizing, 
+                float('-inf'),
+                float('inf'),
+                use_alpha_beta, 
+                start_time, 
+                max_time
+            )
+            
+            if time_exceeded:
+                break
+            
+            best_score = score
+            best_move = move
+            
+            # If we've reached a terminal state or running out of time
+            if time.time() - start_time > max_time * 0.8:
+                break
+                
+            current_depth += 1
+        
+        # Calculate average branching factor
+        avg_branching = self.total_branching_factor / max(1, self.total_branching_samples)
+        
+        # Prepare statistics for output
+        search_time = time.time() - start_time
+        heuristic_score = self.e0_heuristic(game_state)
+        
+        stats = {
+            "score": best_score,
+            "time": search_time,
+            "depth": current_depth - 1,
+            "states_explored": self.states_explored,
+            "states_by_depth": self.states_by_depth,
+            "avg_branching": avg_branching,
+            "heuristic_score": heuristic_score
+        }
+        
+        if best_move:
+            start_str = self.coordinate_to_string(best_move[0])
+            end_str = self.coordinate_to_string(best_move[1])
+            move_str = f"{start_str} {end_str}"
+            return move_str, stats
+        else:
+            # If no move was found, select a random valid move
+            valid_moves = self.valid_moves(game_state)
+            if valid_moves:
+                move = valid_moves[0]
+                start_str = self.coordinate_to_string(move[0])
+                end_str = self.coordinate_to_string(move[1])
+                move_str = f"{start_str} {end_str}"
+                return move_str, stats
+            return None, stats
+
+    def execute_move(self, move_str):
+        parsed_move = self.parse_input(move_str)
+        start, end = parsed_move
+        start_row, start_col = start
+        end_row, end_col = end
+        piece = self.current_game_state["board"][start_row][start_col]
+        target_piece = self.current_game_state["board"][end_row][end_col]
+        
+        currentPlayer = self.current_game_state['turn'].capitalize()
+        
+        # Handle king capture win condition
+        if target_piece in ["bK", "wK"]:
+            winner = currentPlayer
+            print(f"Game Over! {winner} wins by capturing the King.")
+            self.moves_log.append(f"Turn {self.totalMoves + 1} ({currentPlayer}): {move_str}")
+            save_game_trace(self.game_parameters, self.moves_log, f"{winner} (King Capture)", self.initial_board, self.board_snapshots)
+            return True  # Game over
+        
+        # Track turn for draw condition
+        if target_piece != '.':
+            self.turnNumber = 0
+        else:
+            self.turnNumber += 1
+        
+        self.totalMoves += 1
+        
+        # Check for draw (no captures in 10 turns)
+        if self.turnNumber >= 20:  # 10 turns = 20 moves (white + black)
+            print("Game Over! It's a draw (10 turns without a capture).")
+            save_game_trace(self.game_parameters, self.moves_log, "Draw (10 Turns No Capture)", self.initial_board, self.board_snapshots)
+            return True  # Game over
+        
+        # Pawn promotion
+        if piece in ["wp", "bp"] and ((piece == "wp" and end_row == 0) or (piece == "bp" and end_row == 4)):
+            piece = piece[0] + "Q"
+        
+        # Execute the move
+        self.current_game_state["board"][start_row][start_col] = '.'
+        self.current_game_state["board"][end_row][end_col] = piece
+        
+        # Record the move
+        self.moves_log.append(f"Turn {self.totalMoves} ({currentPlayer}): {move_str}")
+        self.board_snapshots.append(f"Turn {self.totalMoves} ({currentPlayer}):\n{self.get_board_string(self.current_game_state['board'])}\n")
+        
+        # Switch turns
+        self.current_game_state["turn"] = "black" if self.current_game_state["turn"] == "white" else "white"
+        
+        # Check for max turns
+        if self.totalMoves >= self.game_parameters['max_turns']:
+            print("Game Over! Reached maximum moves.")
+            save_game_trace(self.game_parameters, self.moves_log, "Draw (Max Moves Reached)", self.initial_board, self.board_snapshots)
+            return True  # Game over
+            
+        return False  # Game continues
+
+    def format_states_by_depth(self):
+        """Format the states explored by depth for display"""
+        total = sum(self.states_by_depth.values())
+        raw_data = []
+        percentage_data = []
+        
+        for depth, count in sorted(self.states_by_depth.items()):
+            # Format the count
+            if count < 1000:
+                count_str = str(count)
+            elif count < 1000000:
+                count_str = f"{count/1000:.1f}k"
+            else:
+                count_str = f"{count/1000000:.1f}M"
+                
+            raw_data.append(f"{depth}={count_str}")
+            
+            # Calculate and format the percentage
+            percentage = (count / total) * 100
+            percentage_data.append(f"{depth}={percentage:.1f}%")
+            
+        return " ".join(raw_data), " ".join(percentage_data)
+
+    def format_total_states(self):
+        """Format the total states explored for display"""
+        if self.states_explored < 1000:
+            return str(self.states_explored)
+        elif self.states_explored < 1000000:
+            return f"{self.states_explored/1000:.1f}k"
+        else:
+            return f"{self.states_explored/1000000:.1f}M"
+
     def play(self):
         print("Welcome to Mini Chess! Enter moves as 'B2 B3'. Type 'exit' to quit.")
         self.board_snapshots.append(f"Turn 0 (White):\n{self.get_board_string(self.current_game_state['board'])}\n")
-
-        while True:
+        
+        play_mode = self.game_parameters["play_mode"]
+        white_is_ai = play_mode in ["AI-H", "AI-AI"]
+        black_is_ai = play_mode in ["H-AI", "AI-AI"]
+        
+        game_over = False
+        
+        while not game_over:
             self.display_board(self.current_game_state)
             currentPlayer = self.current_game_state['turn'].capitalize()
-            move = input(f"{currentPlayer} to move: ")
-
-            if move.lower() == 'exit':
-                print("Game exited.")
-                break
-
-            parsed_move = self.parse_input(move)
-            if not parsed_move or parsed_move not in self.valid_moves(self.current_game_state):
-                print("Invalid move. Try again.")
-                continue
-
-        
-            self.moves_log.append(f"Turn {self.totalMoves + 1} ({currentPlayer}): {move}")
-            self.make_move(self.current_game_state, parsed_move)
-
-            self.board_snapshots.append(f"Turn {self.totalMoves} ({currentPlayer}):\n{self.get_board_string(self.current_game_state['board'])}\n")
-
-            print(f"DEBUG: Total Moves: {self.totalMoves}, Max Turns: {self.game_parameters['max_turns']}")
-            print(f"DEBUG: Turn Number: {self.turnNumber} (For Capture Condition)")
-
-            if self.totalMoves >= self.game_parameters['max_turns']:
-                print("Game Over! Reached maximum moves.")
-                save_game_trace(self.game_parameters, self.moves_log, "Draw (Max Moves Reached)", self.initial_board, self.board_snapshots)
-                break
-
-
+            print(f"{currentPlayer} to move:")
+            
+            # Determine if the current player is AI or human
+            is_ai_turn = (self.current_game_state["turn"] == "white" and white_is_ai) or \
+                          (self.current_game_state["turn"] == "black" and black_is_ai)
+            
+            if is_ai_turn:
+                print("AI is thinking...")
+                move_str, stats = self.get_ai_move(self.current_game_state)
+                
+                print(f"AI move: {move_str}")
+                print(f"Time taken: {stats['time']:.3f} seconds")
+                print(f"Depth reached: {stats['depth']}")
+                print(f"Heuristic score: {stats['heuristic_score']}")
+                print(f"Search score: {stats['score']}")
+                
+                # Format and display state exploration info
+                total_states = self.format_total_states()
+                states_by_depth, states_by_depth_percent = self.format_states_by_depth()
+                
+                print(f"States explored: {total_states}")
+                print(f"States by depth: {states_by_depth}")
+                print(f"States by depth (%): {states_by_depth_percent}")
+                print(f"Average branching factor: {stats['avg_branching']:.2f}")
+                
+                game_over = self.execute_move(move_str)
+            else:
+                # Human turn
+                move = input("Enter your move (e.g. 'B2 B3') or type 'exit' to quit: ")
+                
+                if move.lower() == 'exit':
+                    print("Game exited.")
+                    break
+                
+                parsed_move = self.parse_input(move)
+                if not parsed_move or parsed_move not in self.valid_moves(self.current_game_state):
+                    print("Invalid move. Try again.")
+                    continue
+                
+                game_over = self.execute_move(move)
 
 if __name__ == "__main__":
     game = MiniChess()
