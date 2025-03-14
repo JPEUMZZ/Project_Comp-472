@@ -2,6 +2,7 @@ import math
 import copy
 import time
 import argparse
+import threading
 from game_io import get_game_parameters, save_game_trace
 
 class MiniChess:
@@ -249,8 +250,7 @@ class MiniChess:
                 value, _, time_exceeded = self.minimax(new_state, depth + 1, max_depth, False, alpha, beta, use_alpha_beta, start_time, max_time)
                 
                 if time_exceeded:
-                    time_up = True
-                    break
+                    return None, None, True #stop searching immediately
                 
                 if value > best_value:
                     best_value = value
@@ -263,6 +263,10 @@ class MiniChess:
         else:
             best_value = float('inf')
             for move in valid_moves:
+                #timeout check as well in moves loop
+                if time.time() - start_time() > max_time:
+                    return None, None, True #stops searching immediately
+                
                 new_state, game_over, winner = self.make_move(game_state, move)
                 
                 # If game is over due to king capture
@@ -272,8 +276,7 @@ class MiniChess:
                 value, _, time_exceeded = self.minimax(new_state, depth + 1, max_depth, True, alpha, beta, use_alpha_beta, start_time, max_time)
                 
                 if time_exceeded:
-                    time_up = True
-                    break
+                    return None, None, True # stops searching immediately
                 
                 if value < best_value:
                     best_value = value
@@ -366,60 +369,71 @@ class MiniChess:
                 return move_str, stats
             return None, stats
 
-    def execute_move(self, move_str):
+    def execute_move(self, move_str, ai_stats=None):
         parsed_move = self.parse_input(move_str)
         start, end = parsed_move
         start_row, start_col = start
         end_row, end_col = end
         piece = self.current_game_state["board"][start_row][start_col]
         target_piece = self.current_game_state["board"][end_row][end_col]
-        
+    
         currentPlayer = self.current_game_state['turn'].capitalize()
-        
+    
         # Handle king capture win condition
         if target_piece in ["bK", "wK"]:
             winner = currentPlayer
             print(f"Game Over! {winner} wins by capturing the King.")
-            self.moves_log.append(f"Turn {self.totalMoves + 1} ({currentPlayer}): {move_str}")
+            self.moves_log.append(f"Turn {self.totalMoves + 1} ({currentPlayer}): move from {move_str}")
             save_game_trace(self.game_parameters, self.moves_log, f"{winner} (King Capture)", self.initial_board, self.board_snapshots)
             return True  # Game over
-        
-        # Track turn for draw condition
+
+        # Track turn for draw condition (reset if capture occurs, increment otherwise)
         if target_piece != '.':
             self.turnNumber = 0
         else:
             self.turnNumber += 1
-        
+
+        # Increment total moves (done **after** checking draw condition)
         self.totalMoves += 1
-        
+
         # Check for draw (no captures in 10 turns)
         if self.turnNumber >= 20:  # 10 turns = 20 moves (white + black)
             print("Game Over! It's a draw (10 turns without a capture).")
             save_game_trace(self.game_parameters, self.moves_log, "Draw (10 Turns No Capture)", self.initial_board, self.board_snapshots)
             return True  # Game over
-        
+
         # Pawn promotion
         if piece in ["wp", "bp"] and ((piece == "wp" and end_row == 0) or (piece == "bp" and end_row == 4)):
             piece = piece[0] + "Q"
-        
+
         # Execute the move
         self.current_game_state["board"][start_row][start_col] = '.'
         self.current_game_state["board"][end_row][end_col] = piece
-        
-        # Record the move
-        self.moves_log.append(f"Turn {self.totalMoves} ({currentPlayer}): {move_str}")
+
+        # Format move log correctly
+        move_log = f"Turn {self.totalMoves} ({currentPlayer}): move from {move_str}"
+
+        # If AI played the move, append relevant statistics
+        if ai_stats:
+            move_log += f" | time for this action: {ai_stats['time']:.3f} sec"
+            move_log += f" | heuristic score: {ai_stats['heuristic_score']}"
+            move_log += f" | alpha-beta search score: {ai_stats['score']}"
+
+        # Save move logs and board snapshots
+        self.moves_log.append(move_log)
         self.board_snapshots.append(f"Turn {self.totalMoves} ({currentPlayer}):\n{self.get_board_string(self.current_game_state['board'])}\n")
-        
+
         # Switch turns
         self.current_game_state["turn"] = "black" if self.current_game_state["turn"] == "white" else "white"
-        
+
         # Check for max turns
         if self.totalMoves >= self.game_parameters['max_turns']:
             print("Game Over! Reached maximum moves.")
             save_game_trace(self.game_parameters, self.moves_log, "Draw (Max Moves Reached)", self.initial_board, self.board_snapshots)
             return True  # Game over
-            
+        
         return False  # Game continues
+
 
     def format_states_by_depth(self):
         """Format the states explored by depth for display"""
@@ -452,6 +466,22 @@ class MiniChess:
             return f"{self.states_explored/1000:.1f}k"
         else:
             return f"{self.states_explored/1000000:.1f}M"
+        
+    def timed_input(prompt, timeout):
+        """Function to get input with timeout constraint from human player"""
+        result=[None] # using a list to store input for thread
+
+        def input_thread():
+            result[0]=input(prompt) #store input in a list
+
+        thread = threading.Thread(target=input_thread)
+        thread.start()
+        thread.join(timeout) #wait for input for the given time duration
+
+        if thread.is_alive(): #if time runsout before input
+            print("Time's up! You took too much time to make a move.")
+            return None #timeout case
+        return result[0]
 
     def play(self):
         print("Welcome to Mini Chess! Enter moves as 'B2 B3'. Type 'exit' to quit.")
@@ -461,6 +491,8 @@ class MiniChess:
         white_is_ai = play_mode in ["AI-H", "AI-AI"]
         black_is_ai = play_mode in ["H-AI", "AI-AI"]
         
+        time_limit =self.game_parameters["time_limit"] #read time limit from player input
+
         game_over = False
         
         while not game_over:
@@ -494,8 +526,15 @@ class MiniChess:
                 game_over = self.execute_move(move_str)
             else:
                 # Human turn
-                move = input("Enter your move (e.g. 'B2 B3') or type 'exit' to quit: ")
+                move = self.timed_input("Enter your move (e.g. 'B2 B3') or type 'exit' to quit(You have {time_limit} seconds): ", time_limit)
                 
+                if move is None: #timeout occured
+                    print (f"{currentPlayer} lost due to time expiration.")
+                    winner = "Black" if currentPlayer == "White" else "White"
+                    save_game_trace(self.game_parameters, self.moves_log, f"{winner} (Timeout)", self.initial_board, self.board_snapshots)
+                    break #end the game
+
+
                 if move.lower() == 'exit':
                     print("Game exited.")
                     break
