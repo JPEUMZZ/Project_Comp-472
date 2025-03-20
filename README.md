@@ -99,7 +99,8 @@ Type exit to quit.
 - Implemented King capture logic. The game ends immediately when a King is taken.
 - Added pawn promotion. Pawns reaching the last row are automatically converted to a Queen.
 - Implemented a 10-turn draw rule. If no capture happens in 10 moves, the game ends in a draw.
-
+- Implemented The Heuristic e1.
+- Updated ai_move function.
 ### Thaneekan Thankarajah:
 - Implemented input parameters for the game such as timeout options, maximum amount of turns, play mode, etc.
 - Trace file:
