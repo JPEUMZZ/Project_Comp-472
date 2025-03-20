@@ -208,7 +208,39 @@ class MiniChess:
                        999 * piece_counts['bK'])
         
         return white_value - black_value
-
+        
+    def e1_heuristic(self, game_state):
+        """
+        e1 = e0 + positional weighting
+        Encourages central control and pawn advancement.
+        """
+        e0_value = self.e0_heuristic(game_state)
+        board = game_state["board"]
+        
+        # Positional weight map (encourages central control)
+        position_weights = [
+            [ 3,  4,  5,  4,  3],
+            [ 4,  6,  8,  6,  4],
+            [ 5,  8, 10,  8,  5],
+            [ 4,  6,  8,  6,  4],
+            [ 3,  4,  5,  4,  3]
+        ]
+        
+        position_score = 0
+        for row in range(5):
+            for col in range(5):
+                piece = board[row][col]
+                if piece == '.':
+                    continue
+                
+                weight = position_weights[row][col]
+                if piece[0] == 'w':
+                    position_score += weight
+                elif piece[0] == 'b':
+                    position_score -= weight
+        
+        return e0_value + position_score
+		
     def minimax(self, game_state, depth, max_depth, maximizing_player, alpha=float('-inf'), beta=float('inf'), use_alpha_beta=True, start_time=None, max_time=None):
         # Track states explored
         self.states_explored += 1
@@ -297,10 +329,13 @@ class MiniChess:
         start_time = time.time()
         max_time = self.game_parameters["time_limit"]
         use_alpha_beta = self.game_parameters["alpha_beta"]
+        heuristic_choice = self.game_parameters.get("heuristic", "e0")
         
         best_score = None
         best_move = None
         current_depth = 1
+        
+        heuristic_function = self.e0_heuristic if heuristic_choice == "e0" else self.e1_heuristic
         
         # Iterative deepening
         while True:
@@ -341,7 +376,7 @@ class MiniChess:
         
         # Prepare statistics for output
         search_time = time.time() - start_time
-        heuristic_score = self.e0_heuristic(game_state)
+        heuristic_score = heuristic_function(game_state)
         
         stats = {
             "score": best_score,
@@ -368,7 +403,7 @@ class MiniChess:
                 move_str = f"{start_str} {end_str}"
                 return move_str, stats
             return None, stats
-
+    
     def execute_move(self, move_str, ai_stats=None):
         parsed_move = self.parse_input(move_str)
         start, end = parsed_move
