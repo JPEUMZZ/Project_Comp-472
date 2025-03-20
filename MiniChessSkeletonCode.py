@@ -208,7 +208,7 @@ class MiniChess:
                        999 * piece_counts['bK'])
         
         return white_value - black_value
-        
+		
     def e1_heuristic(self, game_state):
         """
         e1 = e0 + positional weighting
@@ -238,6 +238,36 @@ class MiniChess:
                     position_score += weight
                 elif piece[0] == 'b':
                     position_score -= weight
+        
+        return e0_value + position_score
+		
+    def e2_heuristic(self, game_state):
+        """
+        Faster e2 heuristic: Simplified material + positional evaluation.
+        """
+        e0_value = self.e0_heuristic(game_state)
+        board = game_state["board"]
+        
+        position_score = 0
+        
+        for row in range(5):
+            for col in range(5):
+                piece = board[row][col]
+                if piece == '.':
+                    continue
+                
+                piece_type = piece[1]
+                owner = 1 if piece[0] == 'w' else -1  # White: +1, Black: -1
+                
+                # Simple positional scoring
+                if piece_type == 'K':  # King prefers edges
+                    position_score += owner * (1 if row in [0, 4] or col in [0, 4] else -1)
+                elif piece_type == 'p':  # Pawns prefer advancing but avoid last row
+                    position_score += owner * (row if piece[0] == 'w' else (4 - row))
+                elif piece_type in ['N', 'B']:  # Knights/Bishops prefer the center
+                    position_score += owner * (2 - abs(2 - row) - abs(2 - col))
+                elif piece_type == 'Q':  # Queen prefers mobility
+                    position_score += owner * (5 - abs(2 - row) - abs(2 - col))
         
         return e0_value + position_score
 		
@@ -296,7 +326,7 @@ class MiniChess:
             best_value = float('inf')
             for move in valid_moves:
                 #timeout check as well in moves loop
-                if time.time() - start_time() > max_time:
+                if time.time() - start_time > max_time:
                     return None, None, True #stops searching immediately
                 
                 new_state, game_over, winner = self.make_move(game_state, move)
@@ -404,6 +434,18 @@ class MiniChess:
                 return move_str, stats
             return None, stats
     
+    def init_game_parameters(self):
+        """
+        Allows user to select heuristic and set other game parameters before starting the game.
+        """
+        print("Select AI heuristic (e0 = Material, e1 = Material + Position):")
+        heuristic_choice = input("Enter 'e0' or 'e1': ").strip()
+        if heuristic_choice not in ["e0", "e1"]:
+            heuristic_choice = "e0"  # Default to e0 if invalid input
+        
+        self.game_parameters["heuristic"] = heuristic_choice
+        print(f"Using heuristic: {heuristic_choice}")
+
     def execute_move(self, move_str, ai_stats=None):
         parsed_move = self.parse_input(move_str)
         start, end = parsed_move
