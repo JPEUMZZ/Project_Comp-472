@@ -110,3 +110,5 @@ Type exit to quit.
 ### Junior Peumi:
 - Implement movement rules for each piece
 - Implement move validation
+- Implemented The Heuristic e0
+- Implemented The alpha beta algorithm 
